@@ -32,10 +32,27 @@ var SubtitlesOctopus = function (options) {
     self.fonts = options.fonts || []; // Array with links to fonts used in sub (optional)
     self.availableFonts = options.availableFonts || []; // Object with all available fonts (optional). Key is font name in lower case, value is link: {"arial": "/font1.ttf"}
     self.onReadyEvent = options.onReady; // Function called when SubtitlesOctopus is ready (optional)
-    if (supportsWebAssembly) {
-        self.workerUrl = options.workerUrl || 'subtitles-octopus-worker.js'; // Link to WebAssembly worker
+    if (options.workerContructor && options.legacyWorkerConstructor) {
+        if (supportsWebAssembly) {
+            self.workerConstructor = options.workerConstructor; // Callback to create the worker
+        } else {
+            self.workerConstructor = options.legacyWorkerConstructor; // Callback to create the legacy worker
+        }
+    } else if (options.workerContructor || options.legacyWorkerConstructor) {
+        throw new Error("Either both options or none have to be set: workerContructor, legacyWorkerConstructor")
     } else {
-        self.workerUrl = options.legacyWorkerUrl || 'subtitles-octopus-worker-legacy.js'; // Link to legacy worker
+        /*
+         * Warning:
+         * For these options you have to know the url to the built bundles in advance (and hardcoded into the source),
+         * if you don't know them or want to use a worker plugin
+         * (for example with https://github.com/GoogleChromeLabs/worker-plugin)
+         * you can use workerContructor & legacyWorkerConstructor.
+         */
+        if (supportsWebAssembly) {
+            self.workerUrl = options.workerUrl || 'subtitles-octopus-worker.js'; // Link to WebAssembly worker
+        } else {
+            self.workerUrl = options.legacyWorkerUrl || 'subtitles-octopus-worker-legacy.js'; // Link to legacy worker
+        }
     }
     self.subUrl = options.subUrl; // Link to sub file (optional if subContent specified)
     self.subContent = options.subContent || null; // Sub content (optional if subUrl specified)
@@ -108,7 +125,11 @@ var SubtitlesOctopus = function (options) {
         }
         // Worker
         if (!self.worker) {
-            self.worker = new Worker(self.workerUrl);
+            if (self.workerConstructor) {
+                self.worker = self.workerConstructor();
+            } else {
+                self.worker = new Worker(self.workerUrl);
+            }
             self.worker.onmessage = self.onWorkerMessage;
             self.worker.onerror = self.workerError;
         }

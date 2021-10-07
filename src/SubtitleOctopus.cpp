@@ -2,6 +2,7 @@
     SubtitleOctopus.js
 */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -183,31 +184,64 @@ static int _is_move_tag_animated(char *begin, char *end) {
     return params[0] != params[2] || params[1] != params[3];
 }
 
+static char * _skip_whitespace(char *begin, char *end) {
+    while (begin < end && isspace(*begin)) begin++;
+    return begin;
+}
+
+static char * _rskip_whitespace(char *begin, char *end) {
+    while (end > begin && isspace(end[-1])) end--;
+    return end;
+}
+
 static int _is_animated_tag(char *begin, char *end) {
     // strip whitespaces around the tag
-    while (begin < end && (*begin == ' ' || *begin == '\t')) begin++;
-    while (end > begin && (end[-1] == ' ' || end[-1] == '\t')) end--;
+    begin = _skip_whitespace(begin, end);
+    end = _rskip_whitespace(begin, end);
 
     int length = end - begin;
     if (length < 3 || *begin != '\\') return 0; // too short to be animated or not a command
 
-    switch (begin[1]) {
+    // search for a tag name
+    char *nameBegin = begin + 1;
+    char *nameEnd = nameBegin + 1;
+    while (nameEnd < end && isalnum(*nameEnd)) nameEnd++;
+
+    int nameLength = nameEnd - nameBegin;
+
+    switch (*nameBegin) {
         case 'k': // fallthrough
         case 'K':
             // \kXX is karaoke
             return 1;
         case 't':
             // \t(...) is transition
-            return length >= 4 && begin[2] == '(' && end[-1] == ')';
+            if (length >= 4 && nameLength == 1) {
+                char *argsBegin = _skip_whitespace(nameEnd, end);
+                return (*argsBegin == '('); // argsBegin != end
+            }
+            break;
         case 'm':
-            if (length >=7 && end[-1] == ')' && strcmp(begin, "\\move(") == 0) {
-                return _is_move_tag_animated(begin + 6, end - 1);
+            // \move(...) is move
+            if (length >= 7 && nameLength == 4 && strncmp(nameBegin, "move", 4) == 0) {
+                char *argsBegin = _skip_whitespace(nameEnd, end);
+
+                if (*argsBegin == '(') { // argsBegin != end
+                    argsBegin++; // skip '('
+
+                    char *argsEnd = end;
+                    if (argsEnd[-1] == ')') argsEnd--;
+
+                    return _is_move_tag_animated(argsBegin, argsEnd);
+                }
             }
             break;
         case 'f':
             // \fad() or \fade() are fades
-            return (length >= 7 && end[-1] == ')' &&
-                (strcmp(begin, "\\fad(") == 0 || strcmp(begin, "\\fade(") == 0));
+            if (length >= 7 && nameLength >= 3 && strncmp(nameBegin, "fade", nameLength) == 0) {
+                char *argsBegin = _skip_whitespace(nameEnd, end);
+                return (*argsBegin == '('); // argsBegin != end
+            }
     }
 
     return 0;
@@ -216,6 +250,69 @@ static int _is_animated_tag(char *begin, char *end) {
 static void _remove_tag(char *begin, char *end) {
     // overwrite the tag with whitespace so libass won't see it
     for (; begin < end; begin++) *begin = ' ';
+}
+
+static int _is_event_block_tag_animated(char *begin, char *end, bool drop_animations) {
+    if (_is_animated_tag(begin, end)) {
+        if (!drop_animations) return 1;
+        _remove_tag(begin, end);
+    }
+    return 0;
+}
+
+static int _is_event_block_animated(char *&p, bool drop_animations) {
+    char *tagBegin = NULL;
+    int escaped = 0;
+    int brackets = 0;
+
+    p++; // skip '{'
+
+    for (; *p != '\0'; p++) {
+        switch (*p) {
+            case '\\':
+                escaped = !escaped;
+                continue;
+            case '}':
+                if (!escaped) { // ignore unclosed parentheses
+                    char *tagEnd = p;
+                    p++; // skip '}' for the outer loop
+                    if (tagBegin != NULL) return _is_event_block_tag_animated(tagBegin, tagEnd, drop_animations);
+                    return 0;
+                }
+                break;
+            case '(':
+                if (!escaped) brackets++;
+                break;
+            case ')':
+                if (!escaped) {
+                    brackets--;
+
+                    if (brackets < 0) {
+                        // ignore unopened parentheses
+                        brackets = 0;
+                    } else if (!brackets && tagBegin != NULL) {
+                        if (_is_event_block_tag_animated(tagBegin, p + 1, drop_animations)) { // +1 is because we want to drop ')' as well
+                            p++; // skip ')' for the outer loop
+                            return 1;
+                        }
+                        tagBegin = NULL;
+                    }
+                }
+                break;
+            default:
+                if (escaped && !brackets) {
+                    if (tagBegin != NULL && _is_event_block_tag_animated(tagBegin, p - 1, drop_animations)) {
+                        return 1;
+                    }
+                    tagBegin = p - 1; // include '\'
+                }
+                break;
+        }
+
+        escaped = 0;
+    }
+
+    return 0;
 }
 
 static int _is_event_animated(ASS_Event *event, bool drop_animations) {
@@ -228,33 +325,19 @@ static int _is_event_animated(ASS_Event *event, bool drop_animations) {
     }
 
     int escaped = 0;
-    char *tagStart = NULL;
-    for (char *p = event->Text; *p != '\0'; p++) {
-        switch (*p) {
-            case '\\':
-                escaped = !escaped;
-                break;
-            case '{':
-                if (!escaped && tagStart == NULL) tagStart = p + 1;
-                break;
-            case '}':
-                if (!escaped && tagStart != NULL) {
-                    if (_is_animated_tag(tagStart, p)) {
-                        if (!drop_animations) return 1;
-                        _remove_tag(tagStart, p);
-                    }
-                    tagStart = NULL;
-                }
-                break;
-            case ';':
-                if (tagStart != NULL) {
-                    if (_is_animated_tag(tagStart, p)) {
-                        if (!drop_animations) return 1;
-                        _remove_tag(tagStart, p + 1 /* +1 is because we want to drop ';' as well */);
-                    }
-                }
-                tagStart = p + 1;
-                break;
+
+    for (char *p = event->Text; *p != '\0';) {
+        const char c = *p;
+
+        if (c == '\\') {
+            escaped = !escaped;
+            p++;
+        } else if (!escaped && c == '{') {
+            if (_is_event_block_animated(p, drop_animations)) return 1;
+            // do not move the pointer
+        } else {
+            escaped = 0;
+            p++;
         }
     }
 

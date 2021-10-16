@@ -194,7 +194,9 @@ static char * _rskip_whitespace(char *begin, char *end) {
     return end;
 }
 
-static int _is_animated_tag(char *begin, char *end) {
+static int _is_animated_tag(char *begin, char *end, char *&subtagBegin) {
+    subtagBegin = NULL;
+
     // strip whitespaces around the tag
     begin = _skip_whitespace(begin, end);
     end = _rskip_whitespace(begin, end);
@@ -218,7 +220,11 @@ static int _is_animated_tag(char *begin, char *end) {
             // \t(...) is transition
             if (length >= 4 && nameLength == 1) {
                 char *argsBegin = _skip_whitespace(nameEnd, end);
-                return (*argsBegin == '('); // argsBegin != end
+                if (*argsBegin == '(') { // argsBegin != end
+                    argsBegin++; // skip '('
+                    subtagBegin = static_cast<char *>(memchr(argsBegin, '\\', end - argsBegin));
+                    return 1;
+                }
             }
             break;
         case 'm':
@@ -253,10 +259,19 @@ static void _remove_tag(char *begin, char *end) {
 }
 
 static int _is_event_block_tag_animated(char *begin, char *end, bool drop_animations) {
-    if (_is_animated_tag(begin, end)) {
+    char *subtagBegin;
+
+    if (_is_animated_tag(begin, end, subtagBegin)) {
         if (!drop_animations) return 1;
-        _remove_tag(begin, end);
+
+        if (subtagBegin != NULL) {
+            // closing parentheses may remain, but they do not cause rendering errors
+            _remove_tag(begin, subtagBegin);
+        } else {
+            _remove_tag(begin, end);
+        }
     }
+
     return 0;
 }
 

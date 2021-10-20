@@ -5,6 +5,16 @@ var EVENTTIME_ULP = 0.01;
 // maximum time offset for the next request in seconds
 var MAX_REQUEST_OFFSET = 1;
 
+/**
+ * Returns `value` if it is a non-negative number, or `defaultValue` instead.
+ * @param {number} value - Test value.
+ * @param {number} defaultValue - Default value.
+ * @returns {number} `value` if it is a non-negative number, or default value instead.
+ */
+function nonNegative(value, defaultValue) {
+    return value == null || value < 0 ? defaultValue : value;
+}
+
 var SubtitlesOctopus = function (options) {
     var supportsWebAssembly = false;
     try {
@@ -30,6 +40,9 @@ var SubtitlesOctopus = function (options) {
     self.maxRenderHeight = options.maxRenderHeight || 0; // 0 - no limit
     self.resizeVariation = options.resizeVariation || 0.2; // by how many a size can vary before it would cause clearance of prerendered buffer
     self.renderAhead = options.renderAhead || 0; // how many MiB to render ahead and store; 0 to disable (approximate)
+    self.renderAheadResetMinTime = nonNegative(options.renderAheadResetMinTime, 1);
+    self.renderAheadResetMaxTime = nonNegative(options.renderAheadResetMaxTime, 0); // 0 - no time limit
+    self.renderAheadResetMaxFill = Math.min(nonNegative(options.renderAheadResetMaxFill, 1), 1);
     self.isOurCanvas = false; // (internal) we created canvas and manage it
     self.video = options.video; // HTML video element (optional if canvas specified)
     self.canvasParent = null; // (internal) HTML canvas parent element
@@ -504,28 +517,47 @@ var SubtitlesOctopus = function (options) {
         self.rafId = 0;
     }
 
+    /**
+     * Compare rects with a given relative (to 2nd rect) threshold.
+     * @param {Object} rect1 - Rect 1.
+     * @param {number} rect1.width - Rect 1 width.
+     * @param {number} rect1.height - Rect 2 height.
+     * @param {Object} rect2 - Rect 2.
+     * @param {number} rect2.width - Rect 2 width.
+     * @param {number} rect2.height - Rect 2 height.
+     * @param {number} threshold - Relative threshold.
+     * @returns {boolean} Rects are equal (or not) within a given relative (to 2nd rect) threshold.
+     */
+    function fuzzyEqualRect(rect1, rect2, threshold) {
+        return (Math.abs(rect1.width - rect2.width) < threshold * rect2.width &&
+            Math.abs(rect1.height - rect2.height) < threshold * rect2.height);
+    }
+
     self.resetRenderAheadCache = function (isResizing) {
         if (self.renderAhead > 0) {
             var newCache = [];
             if (isResizing && self.oneshotState.prevHeight && self.oneshotState.prevWidth) {
                 if (self.oneshotState.prevHeight === targetHeight &&
                     self.oneshotState.prevWidth === targetWidth) return;
-                var timeLimit = 10, sizeLimit = self.renderAhead * 0.3;
-                if (targetHeight >= self.oneshotState.prevHeight * (1.0 - self.resizeVariation) &&
-                    targetHeight <= self.oneshotState.prevHeight * (1.0 + self.resizeVariation) &&
-                    targetWidth >= self.oneshotState.prevWidth * (1.0 - self.resizeVariation) &&
-                    targetWidth <= self.oneshotState.prevWidth * (1.0 + self.resizeVariation)) {
-                    console.debug('viewport changes are small, leaving more of prerendered buffer');
-                    timeLimit = 30;
-                    sizeLimit = self.renderAhead * 0.5;
-                }
-                var stopTime = self.video.currentTime + self.timeOffset + timeLimit;
+
+                var tm = self.video.currentTime + self.timeOffset;
+                var minTime = tm + self.renderAheadResetMinTime;
+                var maxTime = self.renderAheadResetMaxTime > 0 ? tm + self.renderAheadResetMaxTime : Infinity;
+                var sizeLimit = self.renderAhead * self.renderAheadResetMaxFill;
                 var size = 0;
+
                 for (var i = 0; i < self.renderedItems.length; i++) {
                     var item = self.renderedItems[i];
-                    if (item.emptyFinish < 0 || stopTime < item.emptyFinish) break;
+
+                    if (item.emptyFinish < 0 || maxTime < item.eventFinish) break;
+
+                    if (item.eventFinish >= minTime &&
+                        !fuzzyEqualRect(item.viewport, self.canvas, self.resizeVariation)) continue;
+
                     size += item.size;
+
                     if (size >= sizeLimit) break;
+
                     newCache.push(item);
                 }
             }

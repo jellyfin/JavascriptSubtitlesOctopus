@@ -14,6 +14,7 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
     <script src="./assets/js/subtitles-octopus.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/resize-observer-polyfill@1.5.1/dist/ResizeObserver.js" integrity="sha384-yEkffEbxKzcF3QBOfMbXxFh46kJHWkiO7flPoOfivtspG0m0zxWg6uzHQTSgjlVT" crossorigin="anonymous"></script>
+    <script src="./assets/js/main.js"></script>
 </head>
 
 <body>
@@ -63,6 +64,8 @@
         <script src="https://vjs.zencdn.net/7.5.5/video.js"></script>
 
         <script>
+            var baseUrl = getBaseUrl();
+
             var player = videojs('#test');
             player.ready(function () {
                 // This would look more nice as a plugin but is's just as showcase of using with custom players
@@ -70,12 +73,12 @@
                 window.SubtitlesOctopusOnLoad = function () {
                     var options = {
                         video: video,
-                        subUrl: '/JavascriptSubtitlesOctopus/subtitles/test.ass',
-                        fonts: ['/JavascriptSubtitlesOctopus/fonts/Arial.ttf', '/JavascriptSubtitlesOctopus/fonts/TimesNewRoman.ttf'],
+                        subUrl: baseUrl + '/subtitles/test.ass',
+                        fonts: [baseUrl + '/fonts/Arial.ttf', baseUrl + '/fonts/TimesNewRoman.ttf'],
                         //onReady: onReadyFunction,
                         debug: true,
-                        workerUrl: '/JavascriptSubtitlesOctopus/assets/js/subtitles-octopus-worker.js',
-                        legacyWorkerUrl: '/JavascriptSubtitlesOctopus/assets/js/subtitles-octopus-worker-legacy.js'
+                        workerUrl: baseUrl + '/assets/js/subtitles-octopus-worker.js',
+                        legacyWorkerUrl: baseUrl + '/assets/js/subtitles-octopus-worker-legacy.js'
                     };
                     window.octopusInstance = new SubtitlesOctopus(options); // You can experiment in console
                 };

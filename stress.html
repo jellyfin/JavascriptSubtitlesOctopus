@@ -14,6 +14,7 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
     <script src="./assets/js/subtitles-octopus.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/resize-observer-polyfill@1.5.1/dist/ResizeObserver.js" integrity="sha384-yEkffEbxKzcF3QBOfMbXxFh46kJHWkiO7flPoOfivtspG0m0zxWg6uzHQTSgjlVT" crossorigin="anonymous"></script>
+    <script src="./assets/js/main.js"></script>
 </head>
 
 <body>
@@ -66,6 +67,8 @@
         <script src="https://vjs.zencdn.net/7.5.5/video.js"></script>
 
         <script>
+            var baseUrl = getBaseUrl();
+
             var player = videojs('#test');
             player.ready(function () {
                 // This would look more nice as a plugin but is's just as showcase of using with custom players
@@ -74,21 +77,21 @@
                     var options = {
                         video: video,
                         renderMode: 'lossy',
-                        subUrl: '/JavascriptSubtitlesOctopus/subtitles/aot3p2_op.ass.br',
+                        subUrl: baseUrl + '/subtitles/aot3p2_op.ass.br',
                         fonts: [
-                            '/JavascriptSubtitlesOctopus/fonts/1_ANGIE-BOLD.woff2', 
-                            '/JavascriptSubtitlesOctopus/fonts/2_ANGIE-BOLDITALIC.woff2',
-                            '/JavascriptSubtitlesOctopus/fonts/3_BSOD.woff2', 
-                            '/JavascriptSubtitlesOctopus/fonts/4_CLEARFACESSIBOLD.woff2',
-                            '/JavascriptSubtitlesOctopus/fonts/5_IM_FELL_ENGLISH_PRO_ROMAN.woff2', 
-                            '/JavascriptSubtitlesOctopus/fonts/6_INSIGNESPLATS!-REGULAR.woff2',
-                            '/JavascriptSubtitlesOctopus/fonts/7_KINESISSTD-BLACK.woff2', 
-                            '/JavascriptSubtitlesOctopus/fonts/8_AGARAMONDPRO-REGULAR.woff2',
+                            baseUrl + '/fonts/1_ANGIE-BOLD.woff2',
+                            baseUrl + '/fonts/2_ANGIE-BOLDITALIC.woff2',
+                            baseUrl + '/fonts/3_BSOD.woff2',
+                            baseUrl + '/fonts/4_CLEARFACESSIBOLD.woff2',
+                            baseUrl + '/fonts/5_IM_FELL_ENGLISH_PRO_ROMAN.woff2',
+                            baseUrl + '/fonts/6_INSIGNESPLATS!-REGULAR.woff2',
+                            baseUrl + '/fonts/7_KINESISSTD-BLACK.woff2',
+                            baseUrl + '/fonts/8_AGARAMONDPRO-REGULAR.woff2',
                         ],
                         //onReady: onReadyFunction,
                         debug: true,
-                        workerUrl: '/JavascriptSubtitlesOctopus/assets/js/subtitles-octopus-worker.js',
-                        legacyWorkerUrl: '/JavascriptSubtitlesOctopus/assets/js/subtitles-octopus-worker-legacy.js'
+                        workerUrl: baseUrl + '/assets/js/subtitles-octopus-worker.js',
+                        legacyWorkerUrl: baseUrl + '/assets/js/subtitles-octopus-worker-legacy.js'
                     };
                     window.octopusInstance = new SubtitlesOctopus(options); // You can experiment in console
                 };

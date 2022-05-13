@@ -38,7 +38,8 @@
 
     <div id="content" style="padding-top: 25px;">
       <div id="main" class="container container-body">
-        <h1>Toaru Kagaku no Railgun S (Spring 2013) Karaoke Test - BlendRenderer</h1>
+        <h1>Toaru Kagaku no Railgun S (Spring 2013) Karaoke Test</h1>
+        <h2 id="renderMode"></h2>
         
         <video id="test" class="video-js" controls preload="auto" width="840" height="460" data-setup="{}">
             <source src="https://animethemes.moe/video/ToaruKagakuNoRailgunS-OP1.webm" type='video/webm'>
@@ -74,7 +75,7 @@
                 // This would look more nice as a plugin but is's just as showcase of using with custom players
                 var video = this.tech_.el_;
                 window.SubtitlesOctopusOnLoad = function () {
-                    var options = {
+                    var options = makeOptions({
                         video: video,
                         renderMode: 'wasm-blend',
                         subUrl: baseUrl + '/subtitles/railgun_op.ass.br',
@@ -86,8 +87,10 @@
                         debug: true,
                         workerUrl: baseUrl + '/assets/js/subtitles-octopus-worker.js',
                         legacyWorkerUrl: baseUrl + '/assets/js/subtitles-octopus-worker-legacy.js'
-                    };
+                    });
                     window.octopusInstance = new SubtitlesOctopus(options); // You can experiment in console
+
+                    document.querySelector('#renderMode').innerText = getRenderModeName(window.octopusInstance);
                 };
                 if (SubtitlesOctopus) {
                     SubtitlesOctopusOnLoad();

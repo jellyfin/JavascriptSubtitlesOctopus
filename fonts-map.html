@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
     <script src="./assets/js/subtitles-octopus.js"></script>
+    <script src="./assets/js/main.js"></script>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -44,22 +45,24 @@
         <script src="https://cdn.plyr.io/3.5.6/plyr.js"></script>
         <link rel="stylesheet" href="https://cdn.plyr.io/3.5.6/plyr.css">
         <script>
+            var baseUrl = getBaseUrl();
+
             const player = new Plyr('#player');
             player.on('ready', function () {
                 var video = document.getElementById('player');
                 window.SubtitlesOctopusOnLoad = function() {
                     var options = {
                         video: video,
-                        subUrl: '/JavascriptSubtitlesOctopus/subtitles/test.ass',
+                        subUrl: baseUrl + '/subtitles/test.ass',
                         availableFonts: {
-                          'arial': '/JavascriptSubtitlesOctopus/fonts/Arial.ttf', 
-                          'times new roman': '/JavascriptSubtitlesOctopus/fonts/TimesNewRoman.ttf', 
+                          'arial': baseUrl + '/fonts/Arial.ttf',
+                          'times new roman': baseUrl + '/fonts/TimesNewRoman.ttf',
                           'for example this file wouldnt be used': '/nope.ttf'
                         }, // All available fonts (font name should be lower case). It will load only fonts really used in sub.
                         //onReady: onReadyFunction,
                         //debug: true,
-                        workerUrl: '/JavascriptSubtitlesOctopus/assets/js/subtitles-octopus-worker.js',
-                        legacyWorkerUrl: '/JavascriptSubtitlesOctopus/assets/js/subtitles-octopus-worker-legacy.js'
+                        workerUrl: baseUrl + '/assets/js/subtitles-octopus-worker.js',
+                        legacyWorkerUrl: baseUrl + '/assets/js/subtitles-octopus-worker-legacy.js'
                     };
                     window.octopusInstance = new SubtitlesOctopus(options); // You can experiment in console
                 };

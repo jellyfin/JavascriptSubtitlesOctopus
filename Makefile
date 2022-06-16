@@ -4,7 +4,7 @@
 BASE_DIR:=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 DIST_DIR:=$(BASE_DIR)dist/libraries
 
-export LDFLAGS = -O3 -s EVAL_CTORS=1 -flto -s ENVIRONMENT=web,webview,worker -s NO_EXIT_RUNTIME=1
+export LDFLAGS = -O3 -s EVAL_CTORS=1 -flto -s ENVIRONMENT=web,webview,worker -s NO_EXIT_RUNTIME=1 -s STRICT_JS=1
 export CFLAGS = -O3 -flto -s USE_PTHREADS=0
 export CXXFLAGS = $(CFLAGS)
 export PKG_CONFIG_PATH = $(DIST_DIR)/lib/pkgconfig

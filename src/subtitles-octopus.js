@@ -1,3 +1,4 @@
+"use strict";
 // minimum time difference between frames
 var FRAMETIME_ULP = 0.001;
 // minimum time difference between subtitle events

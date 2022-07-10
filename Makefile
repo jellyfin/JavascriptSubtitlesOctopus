@@ -191,6 +191,7 @@ dist/js/subtitles-octopus-worker-legacy.js: src/subtitles-octopus-worker.bc src/
 		-s LEGACY_VM_SUPPORT=1 \
 		-s MIN_CHROME_VERSION=27 \
 		-s MIN_SAFARI_VERSION=60005 \
+		--closure=0 \
 		$(EMCC_COMMON_ARGS)
 
 dist/js/subtitles-octopus.js: dist/license/all src/subtitles-octopus.js

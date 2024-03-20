@@ -57,6 +57,7 @@ function isBrotliFile(url) {
 Module = Module || {};
 
 Module["preRun"] = Module["preRun"] || [];
+Module["postRun"] = Module["postRun"] || [];
 
 Module["preRun"].push(function () {
     Module["FS_createPath"]("/", "fonts", true, true);
@@ -101,6 +102,12 @@ Module["preRun"].push(function () {
     for (var i = 0; i < fontFiles.length; i++) {
         self.loadFontFile('font' + i + '-', fontFiles[i]);
     }
+});
+
+var calledMain = false;
+
+Module["postRun"].push(function () {
+    calledMain = true;
 });
 
 Module['onRuntimeInitialized'] = function () {

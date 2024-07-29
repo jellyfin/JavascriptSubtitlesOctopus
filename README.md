@@ -148,6 +148,15 @@ When creating an instance of SubtitleOctopus, you can set the following options:
                  (Default: `0` - don't render ahead)
 - `resizeVariation`: The resize threshold at which the cache of pre-rendered events is cleared.
                      (Default: `0.2`)
+- `renderAheadResetMinTime`: Minimum time in seconds to keep events in the cache after
+                             resizing the canvas (regardless of `resizeVariation`).
+                             (Default: `1`)
+- `renderAheadResetMaxTime`: Maximum time in seconds to keep events in the cache after
+                             resizing the canvas (within `resizeVariation`).
+                             (Default: `0`; `0` - no time limit)
+- `renderAheadResetMaxFill`: Maximum portion of the cache that can be used after
+                             resizing the canvas.
+                             (Default: `1`; `1` - the entire cache can be used)
 
 ### Rendering Modes
 #### JS Blending

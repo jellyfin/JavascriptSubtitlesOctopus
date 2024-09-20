@@ -4,5 +4,6 @@
     "github>jellyfin/.github//renovate-presets/default",
     ":semanticCommitsDisabled",
     ":dependencyDashboard"
-  ]
+  ],
+  "forkProcessing": "enabled"
 }

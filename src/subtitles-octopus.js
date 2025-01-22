@@ -370,12 +370,11 @@ var SubtitlesOctopus = function (options) {
         }
 
         if (size <= self.renderAhead) {
-            var lastRendered = currentTime - (renderNow ? 0 : FRAMETIME_ULP);
             if (!self.oneshotState.renderRequested) {
                 self.oneshotState.renderRequested = true;
                 self.worker.postMessage({
                     target: 'oneshot-render',
-                    lastRendered: lastRendered,
+                    lastRendered: currentTime,
                     renderNow: renderNow,
                     iteration: self.oneshotState.iteration
                 });
@@ -383,7 +382,7 @@ var SubtitlesOctopus = function (options) {
                 if (self.workerActive) {
                     console.info('worker busy, requesting to seek');
                 }
-                self.oneshotState.requestNextTimestamp = lastRendered;
+                self.oneshotState.requestNextTimestamp = currentTime;
             }
         }
     }

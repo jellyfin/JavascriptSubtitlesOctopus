@@ -284,6 +284,26 @@ static bool _is_event_animated(ASS_Event *event, bool drop_animations) {
     return false;
 }
 
+/**
+ * \brief Convert time in seconds to time in milliseconds
+ * \param seconds Time in seconds
+ * \return Time in milliseconds (rounded)
+ */
+static long long _convert_time_to_ms(double seconds)
+{
+    return (long long)(seconds * 1e+3 + 0.5);
+}
+
+/**
+ * \brief Convert time in milliseconds to time in seconds
+ * \param ms Time in milliseconds
+ * \return Time in seconds
+ */
+static double _convert_time_to_seconds(long long ms)
+{
+    return ms * 1e-3;
+}
+
 class SubtitleOctopus {
 public:
     ASS_Library* ass_library;
@@ -381,7 +401,7 @@ public:
     }
 
     ASS_Image* renderImage(double time, int* changed) {
-        ASS_Image *img = ass_render_frame(ass_renderer, track, (int) (time * 1000), changed);
+        ASS_Image *img = ass_render_frame(ass_renderer, track, _convert_time_to_ms(time), changed);
         return img;
     }
     /* CANVAS */
@@ -461,7 +481,7 @@ public:
         m_blendResult.blend_time = 0.0;
         m_blendResult.part = NULL;
 
-        ASS_Image *img = ass_render_frame(ass_renderer, track, (int)(tm * 1000), &m_blendResult.changed);
+        ASS_Image *img = ass_render_frame(ass_renderer, track, _convert_time_to_ms(tm), &m_blendResult.changed);
         if (img == NULL || (m_blendResult.changed == 0 && !force)) {
             return &m_blendResult;
         }
@@ -524,7 +544,7 @@ public:
         if (!track || track->n_events == 0) return -1;
 
         ASS_Event *cur = track->events;
-        long long now = (long long)(tm * 1000);
+        long long now = _convert_time_to_ms(tm);
         long long closest = -1;
 
         for (int i = 0; i < track->n_events; i++, cur++) {
@@ -540,7 +560,7 @@ public:
             }
         }
 
-        return closest / 1000.0;
+        return _convert_time_to_seconds(closest);
     }
 
     EventStopTimesResult* findEventStopTimes(double tm) const {
@@ -551,7 +571,7 @@ public:
         }
 
         ASS_Event *cur = track->events;
-        long long now = (long long)(tm * 1000);
+        long long now = _convert_time_to_ms(tm);
 
         long long minFinish = -1, maxFinish = -1, minStart = -1;
         int current_animated = 0;
@@ -578,7 +598,7 @@ public:
         if (minFinish != -1) {
             // some event is going on, so we need to re-draw either when it stops
             // or when some other event starts
-            result.eventFinish = ((minStart == -1 || minFinish < minStart) ? minFinish : minStart) / 1000.0;
+            result.eventFinish = _convert_time_to_seconds((minStart == -1 || minFinish < minStart) ? minFinish : minStart);
         } else {
             // there's no current event, so no need to draw anything
             result.eventFinish = -1;
@@ -586,7 +606,7 @@ public:
 
         if (minFinish == maxFinish && (minStart == -1 || minStart > maxFinish)) {
             // there's empty space after this event ends
-            result.emptyFinish = minStart / 1000.0;
+            result.emptyFinish = _convert_time_to_seconds(minStart);
         } else {
             // there's no empty space after eventFinish happens
             result.emptyFinish = result.eventFinish;

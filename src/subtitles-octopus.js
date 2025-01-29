@@ -689,9 +689,14 @@ var SubtitlesOctopus = function (options) {
                                     data.eventStart + ', empty=' + data.emptyFinish +
                                     '), render: ' + Math.round(data.spentTime) + ' ms');
                         }
+
+                        var requestNextTimestamp = self.oneshotState.requestNextTimestamp;
+
                         self.oneshotState.renderRequested = false;
-                        if (Math.abs(data.lastRenderedTime - self.oneshotState.requestNextTimestamp) < EVENTTIME_ULP) {
-                            self.oneshotState.requestNextTimestamp = -1;
+                        self.oneshotState.requestNextTimestamp = -1;
+
+                        if (Math.abs(data.lastRenderedTime - requestNextTimestamp) < EVENTTIME_ULP) {
+                            requestNextTimestamp = -1;
                         }
                         if (data.eventStart - data.lastRenderedTime > EVENTTIME_ULP) {
                             // generate bogus empty element, so all timeline is covered anyway
@@ -745,9 +750,9 @@ var SubtitlesOctopus = function (options) {
                             return a.eventStart - b.eventStart;
                         });
 
-                        if (self.oneshotState.requestNextTimestamp >= 0) {
+                        if (requestNextTimestamp >= 0) {
                             // requesting an out of order event render
-                            tryRequestOneshot(self.oneshotState.requestNextTimestamp, true);
+                            tryRequestOneshot(requestNextTimestamp, true);
                         } else if (data.eventStart < 0) {
                             console.info('oneshot received "end of frames" event');
                         } else if (data.emptyFinish >= 0) {

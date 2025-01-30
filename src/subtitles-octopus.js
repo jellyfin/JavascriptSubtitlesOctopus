@@ -540,7 +540,7 @@ var SubtitlesOctopus = function (options) {
                 var size = 0;
                 for (var i = 0; i < self.renderedItems.length; i++) {
                     var item = self.renderedItems[i];
-                    if (item.emptyFinish < 0 || stopTime < item.emptyFinish) break;
+                    if (item.emptyFinish < 0 || stopTime < item.eventFinish) break;
                     size += item.size;
                     if (size >= sizeLimit) break;
                     newCache.push(item);

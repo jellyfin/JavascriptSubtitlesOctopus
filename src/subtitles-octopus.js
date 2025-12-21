@@ -50,8 +50,6 @@ var SubtitlesOctopus = function (options) {
     self.lastRenderTime = 0; // (internal) Last time we got some frame from worker
     self.pixelRatio = window.devicePixelRatio || 1; // (internal) Device pixel ratio (for high dpi devices)
 
-    self.timeOffset = options.timeOffset || 0; // Time offset would be applied to currentTime from video (option)
-
     self.renderedItems = []; // used to store items rendered ahead when renderAhead > 0
     self.renderAhead = self.renderAhead * 1024 * 1024 * 0.9 /* try to eat less than requested */;
     self.oneshotState = {
@@ -73,6 +71,7 @@ var SubtitlesOctopus = function (options) {
     // private
     var targetWidth;    // Width of render target
     var targetHeight;   // Height of render target
+    var _timeOffset = options.timeOffset || 0; // Time offset would be applied to currentTime from video (option)
 
     (function() {
         if (typeof ImageData.prototype.constructor === 'function') {
@@ -102,6 +101,19 @@ var SubtitlesOctopus = function (options) {
             return imageData;
         }
     })();
+
+    Object.defineProperty(self, 'timeOffset', {
+        get: function () {
+            return _timeOffset;
+        },
+        set: function (value) {
+            if (_timeOffset === value) return;
+
+            _timeOffset = value;
+
+            _afterSeek();
+        }
+    });
 
     self.workerError = function (error) {
         console.error('Worker error: ', error);
@@ -205,15 +217,15 @@ var SubtitlesOctopus = function (options) {
     };
 
     function onTimeUpdate() {
-        self.setCurrentTime(self.video.currentTime + self.timeOffset);
+        self.setCurrentTime(self.video.currentTime + _timeOffset);
     };
 
     function onPlaying() {
-        self.setIsPaused(false, self.video.currentTime + self.timeOffset);
+        self.setIsPaused(false, self.video.currentTime + _timeOffset);
     }
 
     function onPause() {
-        self.setIsPaused(true, self.video.currentTime + self.timeOffset);
+        self.setIsPaused(true, self.video.currentTime + _timeOffset);
     }
 
     function onSeeking() {
@@ -222,14 +234,7 @@ var SubtitlesOctopus = function (options) {
 
     function onSeeked() {
         self.video.addEventListener('timeupdate', onTimeUpdate, false);
-
-        var currentTime = self.video.currentTime + self.timeOffset;
-
-        self.setCurrentTime(currentTime);
-
-        if (self.renderAhead > 0) {
-            _cleanPastRendered(currentTime, true);
-        }
+        _afterSeek();
     }
 
     function onRateChange() {
@@ -237,7 +242,7 @@ var SubtitlesOctopus = function (options) {
     }
 
     function onWaiting() {
-        self.setIsPaused(true, self.video.currentTime + self.timeOffset);
+        self.setIsPaused(true, self.video.currentTime + _timeOffset);
     }
 
     function onLoadedMetadata(e) {
@@ -343,13 +348,26 @@ var SubtitlesOctopus = function (options) {
         return removed;
     }
 
+    /**
+     * Updates the internal state after seeking or changing the time offset.
+     */
+    function _afterSeek() {
+        var currentTime = self.video.currentTime + _timeOffset;
+
+        self.setCurrentTime(currentTime);
+
+        if (self.renderAhead > 0) {
+            _cleanPastRendered(currentTime, true);
+        }
+    }
+
     function tryRequestOneshot(currentTime, renderNow) {
         if (!self.renderAhead || self.renderAhead <= 0) return;
         if (self.oneshotState.renderRequested && !renderNow) return;
 
         if (typeof currentTime === 'undefined') {
             if (!self.video) return;
-            currentTime = self.video.currentTime + self.timeOffset;
+            currentTime = self.video.currentTime + _timeOffset;
         }
 
         var size = 0;
@@ -424,7 +442,7 @@ var SubtitlesOctopus = function (options) {
         self.rafId = window.requestAnimationFrame(oneshotRender);
         if (!self.video) return;
 
-        var currentTime = self.video.currentTime + self.timeOffset;
+        var currentTime = self.video.currentTime + _timeOffset;
 
         var eventToShow = null;
 
@@ -518,7 +536,7 @@ var SubtitlesOctopus = function (options) {
                     timeLimit = 30;
                     sizeLimit = self.renderAhead * 0.5;
                 }
-                var stopTime = self.video.currentTime + self.timeOffset + timeLimit;
+                var stopTime = self.video.currentTime + _timeOffset + timeLimit;
                 var size = 0;
                 for (var i = 0; i < self.renderedItems.length; i++) {
                     var item = self.renderedItems[i];

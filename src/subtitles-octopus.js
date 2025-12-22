@@ -405,6 +405,16 @@ var SubtitlesOctopus = function (options) {
         }
     }
 
+    /**
+     * Clears the canvas.
+     */
+    function _clearSubtitleEvent() {
+        self.ctx.clearRect(0, 0, self.canvas.width, self.canvas.height);
+        self.oneshotState.displayedEvent = null;
+        self.oneshotState.eventStart = null;
+        self.oneshotState.eventOver = false;
+    }
+
     function _renderSubtitleEvent(event, currentTime) {
         self.oneshotState.displayedEvent = event;
 
@@ -461,6 +471,8 @@ var SubtitlesOctopus = function (options) {
             _renderSubtitleEvent(eventToShow, currentTime);
         } else if (self.oneshotState.displayedEvent) {
             _renderSubtitleEvent(self.oneshotState.displayedEvent, currentTime);
+        } else {
+            _clearSubtitleEvent();
         }
 
         var nextTime = currentTime;
@@ -469,6 +481,9 @@ var SubtitlesOctopus = function (options) {
             // request the next event with some extra time, because we won't get it instantly
             nextTime += Math.max(self.oneshotState.nextRequestOffset, 1.0 / self.targetFps) * self.video.playbackRate;
         }
+
+        // Don't request negative times
+        if (nextTime < 0) nextTime = 0;
 
         var nextEvent = null;
         var finishTime = -1;

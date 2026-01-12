@@ -30,11 +30,9 @@ jobs:
     - name: Setup node environment for NPM
       uses: actions/setup-node@v4.0.2
       with:
-        node-version: 20
+        node-version: 24
         registry-url: 'https://registry.npmjs.org'
         check-latest: true
 
     - name: Publish to NPM
       run: SKIP_PREPARE=1 npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

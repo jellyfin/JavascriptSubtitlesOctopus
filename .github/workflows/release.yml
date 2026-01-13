@@ -12,7 +12,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.1.1
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
     - name: Checkout submodules
       run: |
@@ -28,7 +28,7 @@ jobs:
         docker run --rm --env LC_ALL=C.UTF-8 -v "${PWD}":/code libass/jso:latest
 
     - name: Setup node environment for NPM
-      uses: actions/setup-node@v4.0.2
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 24
         registry-url: 'https://registry.npmjs.org'

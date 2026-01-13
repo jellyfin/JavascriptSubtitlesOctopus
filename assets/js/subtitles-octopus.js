@@ -1059,8 +1059,6 @@ var SubtitlesOctopus = function (options) {
     self.lastRenderTime = 0; // (internal) Last time we got some frame from worker
     self.pixelRatio = window.devicePixelRatio || 1; // (internal) Device pixel ratio (for high dpi devices)
 
-    self.timeOffset = options.timeOffset || 0; // Time offset would be applied to currentTime from video (option)
-
     self.renderedItems = []; // used to store items rendered ahead when renderAhead > 0
     self.renderAhead = self.renderAhead * 1024 * 1024 * 0.9 /* try to eat less than requested */;
     self.oneshotState = {
@@ -1082,6 +1080,7 @@ var SubtitlesOctopus = function (options) {
     // private
     var targetWidth;    // Width of render target
     var targetHeight;   // Height of render target
+    var _timeOffset = options.timeOffset || 0; // Time offset would be applied to currentTime from video (option)
 
     (function() {
         if (typeof ImageData.prototype.constructor === 'function') {
@@ -1111,6 +1110,19 @@ var SubtitlesOctopus = function (options) {
             return imageData;
         }
     })();
+
+    Object.defineProperty(self, 'timeOffset', {
+        get: function () {
+            return _timeOffset;
+        },
+        set: function (value) {
+            if (_timeOffset === value) return;
+
+            _timeOffset = value;
+
+            _afterSeek();
+        }
+    });
 
     self.workerError = function (error) {
         console.error('Worker error: ', error);
@@ -1214,15 +1226,15 @@ var SubtitlesOctopus = function (options) {
     };
 
     function onTimeUpdate() {
-        self.setCurrentTime(self.video.currentTime + self.timeOffset);
+        self.setCurrentTime(self.video.currentTime + _timeOffset);
     };
 
     function onPlaying() {
-        self.setIsPaused(false, self.video.currentTime + self.timeOffset);
+        self.setIsPaused(false, self.video.currentTime + _timeOffset);
     }
 
     function onPause() {
-        self.setIsPaused(true, self.video.currentTime + self.timeOffset);
+        self.setIsPaused(true, self.video.currentTime + _timeOffset);
     }
 
     function onSeeking() {
@@ -1231,14 +1243,7 @@ var SubtitlesOctopus = function (options) {
 
     function onSeeked() {
         self.video.addEventListener('timeupdate', onTimeUpdate, false);
-
-        var currentTime = self.video.currentTime + self.timeOffset;
-
-        self.setCurrentTime(currentTime);
-
-        if (self.renderAhead > 0) {
-            _cleanPastRendered(currentTime, true);
-        }
+        _afterSeek();
     }
 
     function onRateChange() {
@@ -1246,7 +1251,7 @@ var SubtitlesOctopus = function (options) {
     }
 
     function onWaiting() {
-        self.setIsPaused(true, self.video.currentTime + self.timeOffset);
+        self.setIsPaused(true, self.video.currentTime + _timeOffset);
     }
 
     function onLoadedMetadata(e) {
@@ -1352,13 +1357,26 @@ var SubtitlesOctopus = function (options) {
         return removed;
     }
 
+    /**
+     * Updates the internal state after seeking or changing the time offset.
+     */
+    function _afterSeek() {
+        var currentTime = self.video.currentTime + _timeOffset;
+
+        self.setCurrentTime(currentTime);
+
+        if (self.renderAhead > 0) {
+            _cleanPastRendered(currentTime, true);
+        }
+    }
+
     function tryRequestOneshot(currentTime, renderNow) {
         if (!self.renderAhead || self.renderAhead <= 0) return;
         if (self.oneshotState.renderRequested && !renderNow) return;
 
         if (typeof currentTime === 'undefined') {
             if (!self.video) return;
-            currentTime = self.video.currentTime + self.timeOffset;
+            currentTime = self.video.currentTime + _timeOffset;
         }
 
         var size = 0;
@@ -1379,12 +1397,11 @@ var SubtitlesOctopus = function (options) {
         }
 
         if (size <= self.renderAhead) {
-            var lastRendered = currentTime - (renderNow ? 0 : FRAMETIME_ULP);
             if (!self.oneshotState.renderRequested) {
                 self.oneshotState.renderRequested = true;
                 self.worker.postMessage({
                     target: 'oneshot-render',
-                    lastRendered: lastRendered,
+                    lastRendered: currentTime,
                     renderNow: renderNow,
                     iteration: self.oneshotState.iteration
                 });
@@ -1392,9 +1409,19 @@ var SubtitlesOctopus = function (options) {
                 if (self.workerActive) {
                     console.info('worker busy, requesting to seek');
                 }
-                self.oneshotState.requestNextTimestamp = lastRendered;
+                self.oneshotState.requestNextTimestamp = currentTime;
             }
         }
+    }
+
+    /**
+     * Clears the canvas.
+     */
+    function _clearSubtitleEvent() {
+        self.ctx.clearRect(0, 0, self.canvas.width, self.canvas.height);
+        self.oneshotState.displayedEvent = null;
+        self.oneshotState.eventStart = null;
+        self.oneshotState.eventOver = false;
     }
 
     function _renderSubtitleEvent(event, currentTime) {
@@ -1434,7 +1461,7 @@ var SubtitlesOctopus = function (options) {
         self.rafId = window.requestAnimationFrame(oneshotRender);
         if (!self.video) return;
 
-        var currentTime = self.video.currentTime + self.timeOffset;
+        var currentTime = self.video.currentTime + _timeOffset;
 
         var eventToShow = null;
 
@@ -1453,6 +1480,8 @@ var SubtitlesOctopus = function (options) {
             _renderSubtitleEvent(eventToShow, currentTime);
         } else if (self.oneshotState.displayedEvent) {
             _renderSubtitleEvent(self.oneshotState.displayedEvent, currentTime);
+        } else {
+            _clearSubtitleEvent();
         }
 
         var nextTime = currentTime;
@@ -1461,6 +1490,9 @@ var SubtitlesOctopus = function (options) {
             // request the next event with some extra time, because we won't get it instantly
             nextTime += Math.max(self.oneshotState.nextRequestOffset, 1.0 / self.targetFps) * self.video.playbackRate;
         }
+
+        // Don't request negative times
+        if (nextTime < 0) nextTime = 0;
 
         var nextEvent = null;
         var finishTime = -1;
@@ -1528,11 +1560,11 @@ var SubtitlesOctopus = function (options) {
                     timeLimit = 30;
                     sizeLimit = self.renderAhead * 0.5;
                 }
-                var stopTime = self.video.currentTime + self.timeOffset + timeLimit;
+                var stopTime = self.video.currentTime + _timeOffset + timeLimit;
                 var size = 0;
                 for (var i = 0; i < self.renderedItems.length; i++) {
                     var item = self.renderedItems[i];
-                    if (item.emptyFinish < 0 || stopTime < item.emptyFinish) break;
+                    if (item.emptyFinish < 0 || stopTime < item.eventFinish) break;
                     size += item.size;
                     if (size >= sizeLimit) break;
                     newCache.push(item);
@@ -1698,9 +1730,14 @@ var SubtitlesOctopus = function (options) {
                                     data.eventStart + ', empty=' + data.emptyFinish +
                                     '), render: ' + Math.round(data.spentTime) + ' ms');
                         }
+
+                        var requestNextTimestamp = self.oneshotState.requestNextTimestamp;
+
                         self.oneshotState.renderRequested = false;
-                        if (Math.abs(data.lastRenderedTime - self.oneshotState.requestNextTimestamp) < EVENTTIME_ULP) {
-                            self.oneshotState.requestNextTimestamp = -1;
+                        self.oneshotState.requestNextTimestamp = -1;
+
+                        if (Math.abs(data.lastRenderedTime - requestNextTimestamp) < EVENTTIME_ULP) {
+                            requestNextTimestamp = -1;
                         }
                         if (data.eventStart - data.lastRenderedTime > EVENTTIME_ULP) {
                             // generate bogus empty element, so all timeline is covered anyway
@@ -1754,9 +1791,9 @@ var SubtitlesOctopus = function (options) {
                             return a.eventStart - b.eventStart;
                         });
 
-                        if (self.oneshotState.requestNextTimestamp >= 0) {
+                        if (requestNextTimestamp >= 0) {
                             // requesting an out of order event render
-                            tryRequestOneshot(self.oneshotState.requestNextTimestamp, true);
+                            tryRequestOneshot(requestNextTimestamp, true);
                         } else if (data.eventStart < 0) {
                             console.info('oneshot received "end of frames" event');
                         } else if (data.emptyFinish >= 0) {

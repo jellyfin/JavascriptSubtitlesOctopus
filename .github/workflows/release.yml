@@ -5,6 +5,10 @@ on:
     tags:
       - v*
 
+permissions:
+  id-token: write  # Required for OIDC (npm trusted publishing)
+  contents: read
+
 jobs:
   build:
     name: Build & Publish to NPM
